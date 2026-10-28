@@ -1,0 +1,7 @@
+[
+  {
+    "id": "empty-structure-convention",
+    "version": "demo-v1",
+    "text": "Demo lab protocol: RNA empty-structure scoring uses precision 0 and recall 0 when denominators are empty; F1 is 1 if both structures have no pairs. This is a synthetic fixture, not an established lab policy."
+  }
+]

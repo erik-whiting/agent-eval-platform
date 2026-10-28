@@ -1,0 +1,23 @@
+[
+  {
+    "id": "baseline",
+    "version": "1"
+  },
+  {
+    "id": "conditional_retrieval",
+    "version": "1",
+    "retrieval": "conditional"
+  },
+  {
+    "id": "always_retrieval",
+    "version": "1",
+    "retrieval": "always"
+  },
+  {
+    "id": "conditional_warm_cache",
+    "version": "1",
+    "retrieval": "conditional",
+    "cache": true,
+    "cache_condition": "warm"
+  }
+]
