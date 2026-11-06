@@ -34,6 +34,31 @@ python -m pip install -e '.[ui]'
 python -m agent_eval.results_interface.gradio_app runs/<run-id>/records.jsonl
 ```
 
+## Live Jev demo
+
+From the repo root, with Python 3.11+ and `JEV_API_KEY` exported in your shell:
+
+```bash
+PYTHONPATH=src python3 examples/jev_demo.py
+PYTHONPATH=src python3 examples/jev_demo.py --case rna-partial
+PYTHONPATH=src python3 examples/jev_demo.py --dry-run
+```
+
+The first command sends three requests to [Jev System One](https://thejevai.com/docs),
+one per synthetic task. Each asks for a scope probability and a route from a
+fixed menu. The report shows fixture expectations, the local scope/retrieval
+rule baseline, Jev's answers, and usage and timing when available. The cases
+cover computing RNA base-pair metrics, looking up a lab-specific scoring
+protocol, and declining an unrelated CRM request. For the computation case,
+the script also prints the deterministic metric oracle (F1 ≈ 0.667) independently
+of Jev's decision.
+
+`--case` runs one task and `--dry-run` prints request bodies offline without a
+key. `--model` overrides the default `typesafe/jev-1.14`. The script uses the
+standard library and local platform code. These are illustrative smoke cases
+for RQ1/RQ2/RQ6. Route suggestions are logged for inspection and do not
+dispatch tools or retrieval through the platform runtime.
+
 ## Included and working
 
 - Task/configuration loaders with basic validation and synthetic RNA/scope fixtures.
