@@ -36,7 +36,7 @@ python -m agent_eval.results_interface.gradio_app runs/<run-id>/records.jsonl
 
 ## Live Jev demo
 
-From the repo root, with Python 3.11+ and `JEV_API_KEY` exported in your shell:
+From the repo root, with Python 3.11+, curl, and `JEV_API_KEY` exported in your shell:
 
 ```bash
 PYTHONPATH=src python3 examples/jev_demo.py
@@ -55,7 +55,7 @@ of Jev's decision.
 
 `--case` runs one task and `--dry-run` prints request bodies offline without a
 key. `--model` overrides the default `typesafe/jev-1.14`. The script uses the
-standard library and local platform code. These are illustrative smoke cases
+standard library and local platform code, and invokes curl for HTTP. These are illustrative smoke cases
 for RQ1/RQ2/RQ6. Route suggestions are logged for inspection and do not
 dispatch tools or retrieval through the platform runtime.
 
