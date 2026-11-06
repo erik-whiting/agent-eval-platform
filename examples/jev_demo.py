@@ -4,10 +4,9 @@ import argparse
 import json
 import os
 from pathlib import Path
+import subprocess
 import sys
 from time import perf_counter
-from urllib.error import HTTPError, URLError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 from agent_eval.controllers.rules import RuleController
 from agent_eval.tool_gateway.rna import metrics, validate
@@ -41,47 +40,55 @@ QUESTIONS = {
 }
 
 
-class NoRedirect(HTTPRedirectHandler):
-    """Keep the bearer credential on the configured endpoint."""
-
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
 def evaluate(payload, api_key):
-    request = Request(
-        ENDPOINT,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
+    if "\r" in api_key or "\n" in api_key:
+        raise RuntimeError("JEV_API_KEY must be a single line.")
+
+    # Pass the credential on stdin so it does not appear in the command line.
+    headers = f"Authorization: Bearer {api_key}\nContent-Type: application/json\n"
     start = perf_counter()
     try:
-        with build_opener(NoRedirect()).open(request, timeout=30) as response:
-            body = json.load(response)
-        wall_ms = round((perf_counter() - start) * 1000)
+        response = subprocess.run(
+            [
+                "curl", "-q", "--silent", "--show-error", "--max-time", "30",
+                "--request", "POST", "--header", "@-",
+                "--data", json.dumps(payload),
+                "--write-out", "\n%{http_code} %{content_type}", ENDPOINT,
+            ],
+            input=headers.encode("utf-8"),
+            capture_output=True,
+            check=True,
+        )
+    except FileNotFoundError:
+        raise RuntimeError("The live demo requires curl on your PATH.") from None
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"curl could not complete the request (exit {error.returncode}).") from None
+
+    wall_ms = round((perf_counter() - start) * 1000)
+    raw_body, _, metadata = response.stdout.rpartition(b"\n")
+    status, _, content_type = metadata.partition(b" ")
+    if not status.startswith(b"2"):
+        hint = {
+            b"401": " Check that JEV_API_KEY was issued for this endpoint.",
+            b"402": " Check the account credit balance.",
+            b"403": " The request was refused. Compare the demo payload with a known-good request.",
+            b"429": " Wait before rerunning the demo.",
+        }.get(status, "")
+        if content_type.lower().startswith(b"text/html"):
+            hint += " The response was HTML."
+        raise RuntimeError(f"Jev returned HTTP {status.decode('ascii')}.{hint}")
+
+    try:
+        body = json.loads(raw_body)
         if body["code"] != 0:
             raise RuntimeError("Jev returned an API error in the response envelope.")
         data = body["data"]
-        result = data["result"]
-        answers = result["answers"]
+        answers = data["result"]["answers"]
         if answers["in_scope"]["type"] != "noul" or answers["route"]["type"] != "choice":
             raise ValueError("Unexpected Jev answer types")
         if answers["route"]["choice"] not in QUESTIONS["route"]["criteria"]:
             raise ValueError("Unexpected Jev route")
         return data, wall_ms
-    except HTTPError as error:
-        hint = {
-            401: " Check that JEV_API_KEY was issued for this endpoint.",
-            402: " Check the account credit balance.",
-            429: " Wait before rerunning the demo.",
-        }.get(error.code, "")
-        raise RuntimeError(f"Jev returned HTTP {error.code}.{hint}") from None
-    except (URLError, TimeoutError):
-        raise RuntimeError("Could not reach Jev or the request timed out.") from None
     except (KeyError, TypeError, ValueError):
         raise RuntimeError("Jev returned an unexpected response format.") from None
 
